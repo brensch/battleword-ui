@@ -15,7 +15,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 const theme = createTheme({
   palette: {
-    // mode: "dark",
+    mode: "dark",
     background: {
       default: "#121213"
     },
@@ -32,7 +32,7 @@ const theme = createTheme({
     MuiDataGrid: {
       styleOverrides: {
         root: {
-          backgroundColor: '#494949',
+          // backgroundColor: '#818384',
         },
       },
     },
@@ -42,7 +42,6 @@ const theme = createTheme({
 ReactDOM.render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
-
       <CssBaseline />
       <App />
     </ThemeProvider>
