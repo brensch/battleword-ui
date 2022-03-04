@@ -21,7 +21,7 @@ import Typography from '@mui/material/Typography';
 import { DataGrid, GridColDef, GridRowsProp } from '@mui/x-data-grid';
 import { AuthProvider, GithubAuthProvider, GoogleAuthProvider, onAuthStateChanged, signInWithRedirect, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
 import { auth, firestore } from "./index";
@@ -93,6 +93,10 @@ function App() {
     console.log("Current data: ", doc.data());
   });
 
+  useEffect(() => {
+    return unsub
+  })
+
   const logOut = () => {
     auth.signOut()
   }
@@ -133,19 +137,19 @@ function App() {
         onClose={() => setDrawerOpen(false)}
       >
         <List>
-          <ListItem button key={"match"} component={Link} to="">
+          <ListItem button key={"match"} component={Link} to="" onClick={() => { setDrawerOpen(false) }}>
             <ListItemIcon>
               <SportsScoreIcon />
             </ListItemIcon>
             <ListItemText primary={"match"} />
           </ListItem>
-          <ListItem button key={"about"} component={Link} to="/about">
+          <ListItem button key={"about"} component={Link} to="/about" onClick={() => { setDrawerOpen(false) }}>
             <ListItemIcon>
               <HelpOutlineIcon />
             </ListItemIcon>
             <ListItemText primary={"about"} />
           </ListItem>
-          <ListItem button key={"about"} component={Link} to="/about">
+          <ListItem button key={"about"} component={Link} to="/about" onClick={() => { setDrawerOpen(false) }}>
             <ListItemIcon>
               <CodeIcon />
             </ListItemIcon>
@@ -163,7 +167,7 @@ function App() {
             </ListItem>
           </List> :
           <List>
-            <ListItem button key={"login"} component={Link} to="/login">
+            <ListItem button key={"login"} component={Link} to="/login" onClick={() => { setDrawerOpen(false) }}>
               <ListItemIcon>
                 <LoginIcon />
               </ListItemIcon>
