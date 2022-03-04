@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DataGrid, GridRowsProp, GridColDef } from '@mui/x-data-grid';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -11,7 +11,25 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import TextField from '@mui/material/TextField';
 import { alpha, styled } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
-
+import { doc, onSnapshot } from "firebase/firestore";
+import { firestore, auth } from "./index"
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import Divider from '@mui/material/Divider';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import InboxIcon from '@mui/icons-material/MoveToInbox';
+import MailIcon from '@mui/icons-material/Mail';
+import LoginIcon from '@mui/icons-material/Login';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import CodeIcon from '@mui/icons-material/Code';
+import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import SportsScoreIcon from '@mui/icons-material/SportsScore';
+import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
+import Paper from '@mui/material/Paper';
+import { getAuth, signInWithRedirect, GoogleAuthProvider, GithubAuthProvider, onAuthStateChanged, AuthProvider, User } from "firebase/auth";
+import { useContext } from 'react';
 
 const rows: GridRowsProp = [
   { id: 1, col1: 'Player 1', col2: '3/10', col3: '69s', col4: '4.2', col5: '100%' },
@@ -52,7 +70,39 @@ const CssTextField = styled(TextField)({
   },
 });
 
+const UserContext = React.createContext<User | null>(null);
+
+
 function App() {
+
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false)
+  const [user, setUser] = useState<User | null>(null)
+  // const value = useContext(UserContext);
+
+  onAuthStateChanged(auth, (user) => {
+    console.log("user:", user)
+    setUser(user)
+
+    // if (user) {
+    //   // User is signed in, see docs for a list of available properties
+    //   // https://firebase.google.com/docs/reference/js/firebase.User
+    //   const uid = user.uid;
+    //   console.log(user)
+    //   // ...
+    // } else {
+    //   // User is signed out
+    //   // ...
+    // }
+  });
+
+  const unsub = onSnapshot(doc(firestore, "matches", "54a681e7-da7b-4bee-9295-d975f052e12c"), (doc) => {
+    console.log("Current data: ", doc.data());
+  });
+
+  const logOut = () => {
+    auth.signOut()
+  }
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" elevation={0} sx={{
@@ -63,6 +113,7 @@ function App() {
           <IconButton
             color="secondary"
             aria-label="menu"
+            onClick={() => setDrawerOpen(true)}
           >
             <MenuIcon />
           </IconButton>
@@ -83,51 +134,161 @@ function App() {
           </IconButton>
         </Toolbar>
       </AppBar>
-      <Box sx={{
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <List>
+          <ListItem button key={"match"} component={Link} to="">
+            <ListItemIcon>
+              <SportsScoreIcon />
+            </ListItemIcon>
+            <ListItemText primary={"match"} />
+          </ListItem>
+          <ListItem button key={"about"} component={Link} to="/about">
+            <ListItemIcon>
+              <HelpOutlineIcon />
+            </ListItemIcon>
+            <ListItemText primary={"about"} />
+          </ListItem>
+          <ListItem button key={"about"} component={Link} to="/about">
+            <ListItemIcon>
+              <CodeIcon />
+            </ListItemIcon>
+            <ListItemText primary={"source"} />
+          </ListItem>
+        </List>
+        <Divider />
+        {user ?
+          <List>
+            <ListItem button key={"logout"} onClick={logOut}>
+              <ListItemIcon>
+                <LoginIcon />
+              </ListItemIcon>
+              <ListItemText primary={"logout"} />
+            </ListItem>
+          </List> :
+          <List>
+            <ListItem button key={"login"} component={Link} to="/login">
+              <ListItemIcon>
+                <LoginIcon />
+              </ListItemIcon>
+              <ListItemText primary={"login"} />
+            </ListItem>
+          </List>
+        }
 
-        display: "flex",
-        flexDirection: "row",
-        justifyContent: "center",
+      </Drawer>
+      <UserContext.Provider value={user}>
+        <Routes>
+          <Route path="/" element={<Match />} />
+          <Route path="about" element={<About />} />
+          <Route path="login" element={<Login />} />
+        </Routes>
+      </UserContext.Provider>
 
-
-      }}>
-
-        <Grid container maxWidth="xl" >
-          <Grid item md={4} xs={12}>
-            <Grid container spacing={2} padding={2}>
-              <Grid item xs={12}>
-                <CssTextField id="outlined-basic" label="Player 1" variant="outlined" fullWidth={true} />
-              </Grid>
-              <Grid item xs={12}>
-                <CssTextField id="outlined-basic" label="Player 2" variant="outlined" fullWidth={true} />
-              </Grid>
-              <Grid item xs={12}>
-                <CssTextField id="outlined-basic" label="Player 3" variant="outlined" fullWidth={true} />
-              </Grid>
-              <Grid item xs={12}>
-                <CssTextField id="outlined-basic" label="Player 4" variant="outlined" fullWidth={true} />
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid item md={8} xs={12} spacing={2} padding={2} style={{ flexGrow: 1 }}>
-
-            <DataGrid
-              rows={rows}
-              columns={columns}
-              disableColumnMenu={true}
-              disableSelectionOnClick={true}
-              autoHeight
-            />
-          </Grid>
-        </Grid>
-
-      </Box>
 
 
 
       {/* <DataGrid rows={rows} columns={columns} /> */}
     </Box>
   );
+}
+
+function Match() {
+  return (
+    <Box sx={{
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "center",
+    }}>
+
+      <Grid container maxWidth="xl" >
+        <Grid item md={4} xs={12}>
+          <Grid container spacing={2} padding={2}>
+            <Grid item xs={12}>
+              <CssTextField id="outlined-basic" label="Player 1" variant="outlined" fullWidth={true} />
+            </Grid>
+            <Grid item xs={12}>
+              <CssTextField id="outlined-basic" label="Player 2" variant="outlined" fullWidth={true} />
+            </Grid>
+            <Grid item xs={12}>
+              <CssTextField id="outlined-basic" label="Player 3" variant="outlined" fullWidth={true} />
+            </Grid>
+            <Grid item xs={12}>
+              <CssTextField id="outlined-basic" label="Player 4" variant="outlined" fullWidth={true} />
+            </Grid>
+          </Grid>
+        </Grid>
+        <Grid item md={8} xs={12} spacing={2} padding={2} style={{ flexGrow: 1 }}>
+
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            disableColumnMenu={true}
+            disableSelectionOnClick={true}
+            autoHeight
+          />
+        </Grid>
+      </Grid>
+
+    </Box>
+  )
+}
+
+function About() {
+  return (
+    <div>wordle is cool right now.</div>
+  )
+}
+
+
+
+function Login() {
+
+  const user = useContext(UserContext);
+  const navigate = useNavigate();
+
+
+  const googleProvider = new GoogleAuthProvider();
+  const githubProvider = new GithubAuthProvider();
+
+  const login = (provider: AuthProvider) => {
+    signInWithRedirect(auth, provider)
+      .then((result) => {
+        console.log(result)
+      }).catch((error) => {
+        console.log(error)
+      });
+  }
+
+
+  if (user) {
+    console.log("yeet", user)
+    navigate("/")
+  }
+
+
+  return (
+    <Grid sx={{ flexGrow: 1 }} container spacing={2}>
+      <Grid item xs={12}>
+        <Grid container justifyContent="center" spacing={2} padding={2}>
+          <Grid item >
+            <Box
+              sx={{
+                height: 140,
+                width: 300,
+              }}
+            >
+              <GoogleLoginButton onClick={() => login(googleProvider)} />
+              <GithubLoginButton onClick={() => login(githubProvider)} />
+            </Box>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
+  )
+
 }
 
 export default App;
