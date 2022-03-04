@@ -1,35 +1,30 @@
-import React, { useState } from 'react';
-import { DataGrid, GridRowsProp, GridColDef } from '@mui/x-data-grid';
-import AppBar from '@mui/material/AppBar';
-import Box from '@mui/material/Box';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
+import CodeIcon from '@mui/icons-material/Code';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import LoginIcon from '@mui/icons-material/Login';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
-import TextField from '@mui/material/TextField';
-import { alpha, styled } from '@mui/material/styles';
-import Grid from '@mui/material/Grid';
-import { doc, onSnapshot } from "firebase/firestore";
-import { firestore, auth } from "./index"
-import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
+import SportsScoreIcon from '@mui/icons-material/SportsScore';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import InboxIcon from '@mui/icons-material/MoveToInbox';
-import MailIcon from '@mui/icons-material/Mail';
-import LoginIcon from '@mui/icons-material/Login';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import CodeIcon from '@mui/icons-material/Code';
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
-import SportsScoreIcon from '@mui/icons-material/SportsScore';
+import { styled } from '@mui/material/styles';
+import TextField from '@mui/material/TextField';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import { DataGrid, GridColDef, GridRowsProp } from '@mui/x-data-grid';
+import { AuthProvider, GithubAuthProvider, GoogleAuthProvider, onAuthStateChanged, signInWithRedirect, User } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import React, { useContext, useState } from 'react';
+import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
-import Paper from '@mui/material/Paper';
-import { getAuth, signInWithRedirect, GoogleAuthProvider, GithubAuthProvider, onAuthStateChanged, AuthProvider, User } from "firebase/auth";
-import { useContext } from 'react';
+import { auth, firestore } from "./index";
 
 const rows: GridRowsProp = [
   { id: 1, col1: 'Player 1', col2: '3/10', col3: '69s', col4: '4.2', col5: '100%' },
@@ -71,7 +66,6 @@ const CssTextField = styled(TextField)({
 });
 
 const UserContext = React.createContext<User | null>(null);
-
 
 function App() {
 
