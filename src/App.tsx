@@ -18,52 +18,36 @@ import { styled } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import FormControl from '@mui/material/FormControl';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
+import Snackbar from '@mui/material/Snackbar';
+import Alert, { AlertProps } from '@mui/material/Alert';
 import { DataGrid, GridColDef, GridRowsProp } from '@mui/x-data-grid';
 import { AuthProvider, GithubAuthProvider, GoogleAuthProvider, onAuthStateChanged, signInWithRedirect, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import React, { useContext, useEffect, useState } from 'react';
-import { Link, Route, Routes, useNavigate } from "react-router-dom";
+import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
 import { auth, firestore } from "./index";
+import Button from '@mui/material/Button';
+import { Match, Player } from './schema';
 
-const rows: GridRowsProp = [
-  { id: 1, col1: 'Player 1', col2: '3/10', col3: '69s', col4: '4.2', col5: '100%' },
-  { id: 2, col1: 'Player 2', col2: '9/10', col3: '69s', col4: '4.2', col5: '100%' },
-  { id: 3, col1: 'Player 3', col2: '6/8', col3: '69s', col4: '4.2', col5: '80%' },
-];
 
-const columns: GridColDef[] = [
-  { field: 'col1', headerName: 'Player', flex: 1, },
-  { field: 'col2', headerName: 'Won', width: 150 },
-  { field: 'col3', headerName: 'Time', flex: 1, },
-  { field: 'col4', headerName: 'Average Guesses', flex: 1, },
-  { field: 'col5', headerName: 'Percent Complete', flex: 1, },
-];
 
-const CssTextField = styled(TextField)({
-  '& label.Mui-focused': {
-    color: '#ffffff',
-  },
-  '& .MuiInput-underline:after': {
-    borderBottomColor: '#ffffff',
-  },
-  '& .MuiOutlinedInput-root': {
-    '& fieldset': {
-      borderColor: '#424242',
-      color: "#ffffff"
-    },
-    '&:hover fieldset': {
-      borderColor: '#ffffff',
-      color: "#ffffff"
 
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: '#ffffff',
-      color: "#ffffff"
 
-    },
-  },
-});
+var API_BASE = "http://localhost:8080/api"
+
+if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+  // dev code
+} else {
+  API_BASE = "https://api-prod-ouqu2q2ddq-uc.a.run.app/api"
+
+  // production code
+}
+
+
 
 const UserContext = React.createContext<User | null>(null);
 
@@ -74,7 +58,7 @@ function App() {
   // const value = useContext(UserContext);
 
   onAuthStateChanged(auth, (user) => {
-    console.log("user:", user)
+    // console.log("user:", user)
     setUser(user)
 
     // if (user) {
@@ -88,14 +72,6 @@ function App() {
     //   // ...
     // }
   });
-
-  const unsub = onSnapshot(doc(firestore, "matches", "54a681e7-da7b-4bee-9295-d975f052e12c"), (doc) => {
-    console.log("Current data: ", doc.data());
-  });
-
-  useEffect(() => {
-    return unsub
-  })
 
   const logOut = () => {
     auth.signOut()
@@ -137,7 +113,7 @@ function App() {
         onClose={() => setDrawerOpen(false)}
       >
         <List>
-          <ListItem button key={"match"} component={Link} to="" onClick={() => { setDrawerOpen(false) }}>
+          <ListItem button key={"match"} component={Link} to="/match" onClick={() => { setDrawerOpen(false) }}>
             <ListItemIcon>
               <SportsScoreIcon />
             </ListItemIcon>
@@ -179,59 +155,298 @@ function App() {
       </Drawer>
       <UserContext.Provider value={user}>
         <Routes>
-          <Route path="/" element={<Match />} />
+          <Route path="match" element={<StartMatch />} />
+          <Route path="match/:matchID" element={<MatchView />} />
           <Route path="about" element={<About />} />
           <Route path="login" element={<Login />} />
         </Routes>
       </UserContext.Provider>
-
-
-
-
-      {/* <DataGrid rows={rows} columns={columns} /> */}
     </Box>
   );
 }
 
-function Match() {
+const defaultTarget = "yeet"
+
+function StartMatch() {
+
+  const [players, setPlayers] = useState<string[]>([defaultTarget])
+  const [error, setError] = useState<string | null>(null)
+  const [errorOpen, setErrorOpen] = useState<boolean>(false)
+  const [gameCount, setGameCount] = useState<number | string>("")
+
+  let navigate = useNavigate()
+
+  const addPlayer = () => {
+    setPlayers([...players, ""])
+  }
+
+  const removePlayer = () => {
+    setPlayers(players.slice(0, -1))
+  }
+
+  const updatePlayer = (player: number, value: string) => {
+    const tempPlayers = players
+    tempPlayers[player] = value
+    console.log(tempPlayers)
+    setPlayers(tempPlayers)
+  }
+
+  const showAlert = (alert: string) => {
+    setError(alert)
+    setErrorOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+
+    e.preventDefault()
+
+    try {
+
+      players.forEach((player) => {
+        if (player === "") {
+          throw ("can't have empty players")
+        }
+      })
+
+      if (gameCount === "") {
+        throw ("please enter a gamecount")
+      }
+
+      if (gameCount < 0 || gameCount > 10000) {
+        throw ("gamecount needs to be great than 0 and less than 10000")
+
+      }
+
+      const res = await fetch(`${API_BASE}/match`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        method: "POST",
+        body: JSON.stringify({
+          letters: 5,
+          games: gameCount,
+          players: players,
+        })
+      })
+
+      const body = await res.json()
+
+      if (res.status != 200) {
+        throw (body.error)
+      }
+
+      navigate(`/match/${body.uuid}`)
+    } catch (error) {
+      console.log(error.toString())
+      showAlert(error.toString())
+    }
+  }
+
+  console.log(players)
+
+
   return (
-    <Box sx={{
-      display: "flex",
-      flexDirection: "row",
-      justifyContent: "center",
-    }}>
 
-      <Grid container maxWidth="xl" >
-        <Grid item md={4} xs={12}>
-          <Grid container spacing={2} padding={2}>
-            <Grid item xs={12}>
-              <CssTextField id="outlined-basic" label="Player 1" variant="outlined" fullWidth={true} />
+    <React.Fragment>
+
+      <form key={"start-match-form"} onSubmit={handleSubmit}>
+        <Grid container spacing={2}
+          justifyContent="center"
+          direction="column"
+          alignItems="center"
+          padding={2}>
+          {players.map((_, i) =>
+            <Grid key={`input-${i}`} item xs={12}>
+              <TextField
+                id={`player-${i}`}
+                label={`Player ${i + 1}`}
+                onChange={(e) => updatePlayer(i, e.target.value)}
+                // setting value locks it up for some reason
+                defaultValue={defaultTarget}
+                variant="outlined"
+                fullWidth={true}
+                sx={{
+                  width: 300,
+                  height: 56,
+                }} />
             </Grid>
-            <Grid item xs={12}>
-              <CssTextField id="outlined-basic" label="Player 2" variant="outlined" fullWidth={true} />
-            </Grid>
-            <Grid item xs={12}>
-              <CssTextField id="outlined-basic" label="Player 3" variant="outlined" fullWidth={true} />
-            </Grid>
-            <Grid item xs={12}>
-              <CssTextField id="outlined-basic" label="Player 4" variant="outlined" fullWidth={true} />
-            </Grid>
+          )}
+          <Grid item xs={12}>
+            <IconButton
+              color="secondary"
+              aria-label="menu"
+              onClick={addPlayer}
+            >
+              <AddIcon />
+            </IconButton>
+            {players.length > 1 &&
+              <IconButton
+                color="secondary"
+                aria-label="menu"
+                onClick={removePlayer}
+              >
+                <RemoveIcon />
+              </IconButton>
+            }
           </Grid>
-        </Grid>
-        <Grid item md={8} xs={12} spacing={2} padding={2} style={{ flexGrow: 1 }}>
+          <Grid item xs={12}>
 
+            <TextField
+              id={`game-count`}
+              label={`How many games?`}
+              type="number"
+              value={gameCount}
+              onChange={(e) => {
+                const count = parseInt(e.target.value)
+                if (isNaN(count)) {
+                  setGameCount("")
+                  return
+                }
+                setGameCount(count)
+
+              }}
+              variant="outlined"
+              fullWidth={true}
+              sx={{
+                width: 300,
+                height: 56,
+              }} />
+          </Grid>
+          <Grid item xs={12}>
+            <Button
+              type="submit"
+              variant="outlined"
+              disableElevation
+              sx={{
+                width: 300,
+                height: 56,
+              }}
+            >
+              Start match
+            </Button>
+          </Grid>
+
+        </Grid>
+      </form >
+      <Snackbar open={errorOpen} autoHideDuration={6000} onClose={() => { setErrorOpen(false) }}>
+        <Alert onClose={() => { setErrorOpen(false) }} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </React.Fragment>
+
+  )
+
+
+}
+
+function MatchView() {
+  let params = useParams();
+
+  const [match, setMatch] = useState<Match | null>(null)
+
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(firestore, "matches", params.matchID), (doc) => {
+        setMatch(doc.data() as Match)
+      },
+      // (error) => { console.log(error) },
+      // () => { console.log("finished yo") },
+    );
+    return unsub
+  }, [])
+
+  console.log(match)
+
+  function getName(params) {
+    const player = params.row as Player
+    return player.Definition.Name
+  }
+
+  function getPlayed(params) {
+    const player = params.row as Player
+    return player.Games.length
+  }
+
+  function getCorrect(params) {
+    const player = params.row as Player
+    return player.Summary.GamesWon
+  }
+
+  function getAverage(params) {
+    const player = params.row as Player
+    return player.Summary.AverageGuesses
+  }
+
+  function getTime(params) {
+    const player = params.row as Player
+    return player.Summary.TotalTime
+  }
+
+  function formatTime(params) {
+    // console.log(params)
+    const millis = params.value
+    // var milliseconds = millis % 1000;
+    // var seconds = Math.floor((millis / 1000) % 60);
+    // var minutes = Math.floor((millis / (60 * 1000)) % 60);
+
+    // return minutes + ":" + seconds + "." + milliseconds;    // const player = params.row as Player
+    // return player.Summary.TotalTime
+    let time = new Date(millis);
+    let hours = time.getUTCHours();
+    let minutes = time.getUTCMinutes();
+    let seconds = time.getUTCSeconds();
+    let milliseconds = time.getUTCMilliseconds();
+    return hours + ":" + minutes + ":" + seconds + ":" + milliseconds;
+  }
+
+  const columns: GridColDef[] = [
+    { field: "fullName", headerName: 'Name', flex: 1, valueGetter: getName },
+    { field: "gamesPlayed", headerName: 'Played', flex: 1, valueGetter: getPlayed },
+    { field: "gamesCorrect", headerName: 'Correct', flex: 1, valueGetter: getCorrect },
+    { field: "averageGuesses", headerName: 'Average Guesses', flex: 1, valueGetter: getAverage },
+    { field: "totalTime", headerName: 'Total Time', flex: 1, valueGetter: getTime, valueFormatter: formatTime },
+  ];
+
+
+
+  return (
+    <Grid container
+      justifyContent="center"
+      // direction="column"
+      alignItems="center"
+      padding={2}
+      sx={{
+        width: '100%',
+      }}
+    >
+
+      <Grid item xs={12} sx={{
+        width: '100%',
+      }} >
+
+        {match ?
           <DataGrid
-            rows={rows}
+            rows={match.Players}
             columns={columns}
             disableColumnMenu={true}
-            disableSelectionOnClick={true}
             autoHeight
+            hideFooter={true}
+            getRowId={(row) => row.ID}
           />
-        </Grid>
+          :
+          <div>loading</div>}
+
       </Grid>
 
-    </Box>
+
+    </Grid>
+
   )
+
+
 }
 
 function About() {
