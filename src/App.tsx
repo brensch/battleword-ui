@@ -23,28 +23,40 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import Snackbar from '@mui/material/Snackbar';
 import Alert, { AlertProps } from '@mui/material/Alert';
-import { DataGrid, GridColDef, GridRowsProp } from '@mui/x-data-grid';
+// import { DataGrid, GridColDef, GridRowsProp } from '@mui/x-data-grid';
 import { AuthProvider, GithubAuthProvider, GoogleAuthProvider, onAuthStateChanged, signInWithRedirect, User } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, query } from "firebase/firestore";
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
 import { auth, firestore } from "./index";
 import Button from '@mui/material/Button';
-import { Match, Player } from './schema';
+import { Match, Player, Solver } from './schema';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import Autocomplete from '@mui/material/Autocomplete';
+
+import {
+  DataGrid,
+  GridColumns,
+  GridRowsProp,
+  GridActionsCellItem,
+  GridColDef
+} from '@mui/x-data-grid';
 
 
 
-
-
-var API_BASE = "http://localhost:8080/api"
+var API_HOST = "http://localhost:8080"
+var COLLECTION_MATCHES = "matches-local"
+var COLLECTION_SOLVERS = "solvers-local"
+// API_HOST = "https://cloud-engine-dev-ouqu2q2ddq-uc.a.run.app"
 
 if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
   // dev code
 } else {
-  API_BASE = "https://api-prod-ouqu2q2ddq-uc.a.run.app/api"
-
   // production code
+  API_HOST = "https://cloud-engine-dev-ouqu2q2ddq-uc.a.run.app"
+  COLLECTION_MATCHES = "matches"
+  COLLECTION_SOLVERS = "solvers"
 }
 
 
@@ -119,13 +131,19 @@ function App() {
             </ListItemIcon>
             <ListItemText primary={"match"} />
           </ListItem>
+          <ListItem button key={"add solver"} component={Link} to="/onboard" onClick={() => { setDrawerOpen(false) }}>
+            <ListItemIcon>
+              <PsychologyIcon />
+            </ListItemIcon>
+            <ListItemText primary={"add solver"} />
+          </ListItem>
           <ListItem button key={"about"} component={Link} to="/about" onClick={() => { setDrawerOpen(false) }}>
             <ListItemIcon>
               <HelpOutlineIcon />
             </ListItemIcon>
             <ListItemText primary={"about"} />
           </ListItem>
-          <ListItem button key={"about"} component={Link} to="/about" onClick={() => { setDrawerOpen(false) }}>
+          <ListItem button key={"about"} onClick={() => { window.open('https://github.com/brensch/battleword-cloud-engine', '_blank'); }}>
             <ListItemIcon>
               <CodeIcon />
             </ListItemIcon>
@@ -155,9 +173,11 @@ function App() {
       </Drawer>
       <UserContext.Provider value={user}>
         <Routes>
+          <Route path="/" element={<StartMatch />} />
           <Route path="match" element={<StartMatch />} />
           <Route path="match/:matchID" element={<MatchView />} />
           <Route path="about" element={<About />} />
+          <Route path="onboard" element={<Onboard />} />
           <Route path="login" element={<Login />} />
         </Routes>
       </UserContext.Provider>
@@ -165,31 +185,36 @@ function App() {
   );
 }
 
-const defaultTarget = "yeet"
+const defaultTarget = "https://schwordler-pv7fcrtjdq-uc.a.run.app"
+// const defaultTarget = "http://localhost:8081"
 
 function StartMatch() {
 
-  const [players, setPlayers] = useState<string[]>([defaultTarget])
   const [error, setError] = useState<string | null>(null)
   const [errorOpen, setErrorOpen] = useState<boolean>(false)
   const [gameCount, setGameCount] = useState<number | string>("")
+  const [solvers, setSolvers] = useState<Solver[]>([])
+  const [selectedSolvers, setSelectedSolvers] = useState<Solver[]>([])
+
+  const q = query(collection(firestore, COLLECTION_SOLVERS));
+
+  useEffect(() => {
+
+    const unsub = onSnapshot(q, (querySnapshot) => {
+      const newSolvers = [];
+      querySnapshot.forEach((doc) => {
+        console.log(doc.data())
+        // solvers.push(doc.data().name);
+        newSolvers.push(doc.data() as Solver)
+      });
+      setSolvers(newSolvers)
+      // console.log("solvers ", solvers.join(", "));
+    });
+    return unsub
+  }, [])
 
   let navigate = useNavigate()
 
-  const addPlayer = () => {
-    setPlayers([...players, ""])
-  }
-
-  const removePlayer = () => {
-    setPlayers(players.slice(0, -1))
-  }
-
-  const updatePlayer = (player: number, value: string) => {
-    const tempPlayers = players
-    tempPlayers[player] = value
-    console.log(tempPlayers)
-    setPlayers(tempPlayers)
-  }
 
   const showAlert = (alert: string) => {
     setError(alert)
@@ -202,22 +227,20 @@ function StartMatch() {
 
     try {
 
-      players.forEach((player) => {
-        if (player === "") {
-          throw ("can't have empty players")
-        }
-      })
+      if (selectedSolvers.length === 0) {
+        throw ("need to select a player")
+      }
 
       if (gameCount === "") {
         throw ("please enter a gamecount")
       }
 
-      if (gameCount < 0 || gameCount > 10000) {
-        throw ("gamecount needs to be great than 0 and less than 10000")
+      if (gameCount < 0 || gameCount > 100) {
+        throw ("gamecount needs to be great than 0 and less than 100")
 
       }
 
-      const res = await fetch(`${API_BASE}/match`, {
+      const res = await fetch(`${API_HOST}/api/match`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -226,7 +249,7 @@ function StartMatch() {
         body: JSON.stringify({
           letters: 5,
           games: gameCount,
-          players: players,
+          players: selectedSolvers.map((solver) => solver.URI),
         })
       })
 
@@ -243,33 +266,56 @@ function StartMatch() {
     }
   }
 
-  console.log(players)
+  console.log(solvers)
+  // const senders: string[] = ["yeah", "boy", "yeah1", "b2oy", "yeah3", "b4oy"]
 
 
   return (
 
     <React.Fragment>
-
       <form key={"start-match-form"} onSubmit={handleSubmit}>
         <Grid container spacing={2}
           justifyContent="center"
           direction="column"
           alignItems="center"
           padding={2}>
-          {players.map((_, i) =>
+          <Grid item xs={12}>
+
+            <Autocomplete
+              multiple
+              id="tags-outlined"
+              options={solvers}
+              getOptionLabel={(solver: Solver) => solver.Definition.Name}
+              onChange={(_, solvers: Solver[]) => setSelectedSolvers(solvers)}
+              value={selectedSolvers}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Solvers"
+                  placeholder="Type to search"
+
+                />
+              )}
+              sx={{
+                width: 300,
+              }}
+            />
+          </Grid>
+          {/* {players.map((_, i) =>
             <Grid key={`input-${i}`} item xs={12}>
               <TextField
                 id={`player-${i}`}
                 label={`Player ${i + 1}`}
                 onChange={(e) => updatePlayer(i, e.target.value)}
                 // setting value locks it up for some reason
-                defaultValue={defaultTarget}
+                defaultValue={i === 0 ? defaultTarget : ""}
                 variant="outlined"
                 fullWidth={true}
                 sx={{
                   width: 300,
                   height: 56,
-                }} />
+                }}
+              />
             </Grid>
           )}
           <Grid item xs={12}>
@@ -289,7 +335,7 @@ function StartMatch() {
                 <RemoveIcon />
               </IconButton>
             }
-          </Grid>
+          </Grid> */}
           <Grid item xs={12}>
 
             <TextField
@@ -311,7 +357,8 @@ function StartMatch() {
               sx={{
                 width: 300,
                 height: 56,
-              }} />
+              }}
+            />
           </Grid>
           <Grid item xs={12}>
             <Button
@@ -335,6 +382,107 @@ function StartMatch() {
         </Alert>
       </Snackbar>
     </React.Fragment>
+  )
+}
+
+
+function Onboard() {
+
+  const [uri, setUri] = useState<string>("")
+  const [error, setError] = useState<string | null>(null)
+  const [errorOpen, setErrorOpen] = useState<boolean>(false)
+
+  let navigate = useNavigate()
+
+  const showAlert = (alert: string) => {
+    setError(alert)
+    setErrorOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+
+    e.preventDefault()
+
+    try {
+
+      if (uri === "") {
+        throw ("please enter a gamecount")
+      }
+
+      if (uri.includes("localhost")) {
+        throw ("I'm running in the cloud, I can't reach your localhost no matter how hard I try. Try hosting your API online.")
+      }
+
+      const res = await fetch(`${API_HOST}/api/solver`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        method: "POST",
+        body: JSON.stringify({
+          uri: uri,
+        })
+      })
+
+      const body = await res.json()
+
+      if (res.status != 200) {
+        throw (body.error)
+      }
+
+      navigate(`/match/${body.uuid}`)
+    } catch (error) {
+      console.log(error.toString())
+      showAlert(error.toString())
+    }
+  }
+
+
+
+  return (
+
+    <React.Fragment>
+      <form key={"start-match-form"} onSubmit={handleSubmit}>
+        <Grid container spacing={2}
+          justifyContent="center"
+          direction="column"
+          alignItems="center"
+          padding={2}>
+          <Grid key={`input-uri`} item xs={12}>
+            <TextField
+              id={`player-uri`}
+              label={`Enter the solver URL`}
+              onChange={(e) => setUri(e.target.value)}
+              value={uri}
+              variant="outlined"
+              fullWidth={true}
+              sx={{
+                width: 300,
+                height: 56,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Button
+              type="submit"
+              variant="outlined"
+              disableElevation
+              sx={{
+                width: 300,
+                height: 56,
+              }}
+            >
+              Register your solver
+            </Button>
+          </Grid>
+        </Grid>
+      </form >
+      <Snackbar open={errorOpen} autoHideDuration={6000} onClose={() => { setErrorOpen(false) }}>
+        <Alert onClose={() => { setErrorOpen(false) }} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </React.Fragment>
 
   )
 
@@ -349,7 +497,7 @@ function MatchView() {
 
   useEffect(() => {
     const unsub = onSnapshot(
-      doc(firestore, "matches", params.matchID), (doc) => {
+      doc(firestore, COLLECTION_MATCHES, params.matchID), (doc) => {
         setMatch(doc.data() as Match)
       },
       // (error) => { console.log(error) },
@@ -367,22 +515,35 @@ function MatchView() {
 
   function getPlayed(params) {
     const player = params.row as Player
-    return player.Games.length
+    if (player.GamesPlayed === null) {
+      return 0
+    }
+    return player.GamesPlayed.length
   }
 
   function getCorrect(params) {
     const player = params.row as Player
-    return player.Summary.GamesWon
+    if (player.GamesPlayed === null) {
+      return 0
+    }
+    return player.GamesPlayed.filter((game) => game.Correct).length
   }
 
   function getAverage(params) {
     const player = params.row as Player
-    return player.Summary.AverageGuesses
+    if (player.GamesPlayed === null) {
+      return 0
+    }
+    return player.GamesPlayed.reduce((a, b) => a + b.GuessResults.length, 0) / player.GamesPlayed.length
   }
 
   function getTime(params) {
     const player = params.row as Player
-    return player.Summary.TotalTime
+    if (player.GamesPlayed === null) {
+      return 0
+    }
+    return player.GamesPlayed.reduce((a, b) => a + b.GuessDurationsNS.reduce((c, d) => c + d, 0), 0) / 1000000
+    // return player.Summary.TotalTime
   }
 
   function formatTime(params) {
@@ -403,11 +564,11 @@ function MatchView() {
   }
 
   const columns: GridColDef[] = [
-    { field: "fullName", headerName: 'Name', flex: 1, valueGetter: getName },
-    { field: "gamesPlayed", headerName: 'Played', flex: 1, valueGetter: getPlayed },
-    { field: "gamesCorrect", headerName: 'Correct', flex: 1, valueGetter: getCorrect },
-    { field: "averageGuesses", headerName: 'Average Guesses', flex: 1, valueGetter: getAverage },
-    { field: "totalTime", headerName: 'Total Time', flex: 1, valueGetter: getTime, valueFormatter: formatTime },
+    { field: "fullName", headerName: 'Name', valueGetter: getName, width: 150, },
+    { field: "gamesPlayed", headerName: 'Played', valueGetter: getPlayed, width: 100, },
+    { field: "gamesCorrect", headerName: 'Correct', valueGetter: getCorrect, width: 100, },
+    { field: "averageGuesses", headerName: 'Average Guesses', valueGetter: getAverage, width: 150 },
+    { field: "totalTime", headerName: 'Total Time', valueGetter: getTime, valueFormatter: formatTime, width: 150 },
   ];
 
 
@@ -438,12 +599,8 @@ function MatchView() {
           />
           :
           <div>loading</div>}
-
       </Grid>
-
-
     </Grid>
-
   )
 
 

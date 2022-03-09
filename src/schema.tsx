@@ -1,49 +1,19 @@
 export interface Match {
-    UUID: string;
+    Games: Game[];
+    LettersPerWord: number;
     Players: Player[];
-    Games: MatchGame[];
-    Summary: MatchSummary;
+    UUID: string;
+    RoundsPerGame: number;
 }
 
-export interface MatchGame {
-    ID: string;
+export interface Game {
     Answer: string;
-    Summary: GameSummary;
-}
-
-export interface GameSummary {
-    Start: End;
-    End: End;
-    Loudest: Loudest;
-    Fastest: Fastest;
-    MostAccurate: MostAccurate;
-}
-
-export interface End {
-    seconds: number;
-    nanoseconds: number;
-}
-
-export interface Fastest {
-    Time: number;
-    PlayerID: string;
-}
-
-export interface Loudest {
-    PlayerID: string;
-    Volume: number;
-}
-
-export interface MostAccurate {
-    PlayerID: string;
-    AverageGuessLength: number;
+    ID: string;
 }
 
 export interface Player {
-    Games: PlayerGame[];
     Definition: Definition;
-    FailedToFinish: boolean;
-    Summary: PlayerSummary;
+    GamesPlayed: Game[];
     ID: string;
 }
 
@@ -52,48 +22,26 @@ export interface Definition {
     Name: string;
 }
 
-export interface PlayerGame {
-    Times: number[];
-    TotalTime: number;
-    GuessResults: GuessResult[];
+export interface Game {
+    Error: string;
     GameID: string;
     Correct: boolean;
-    Error: string;
+    GuessDurationsNS: number[];
+    GuessResults: GuessResult[];
 }
 
 export interface GuessResult {
     Result: number[];
-    Guess: Guess;
+    Guess: string;
 }
 
-export enum Guess {
-    Crane = "crane",
+export interface Solver {
+    Definition: SolverDefinition;
+    URI: string;
 }
 
-export interface PlayerSummary {
-    TotalVolume: number;
-    TotalGuesses: number;
-    AverageGuesses: number;
-    TotalTime: number;
-    GamesWon: number;
-}
-
-export interface MatchSummary {
-    MostCorrect: MostCorrect;
-    MostAccurate: MostAccurate;
-    GamesMostAccurate: Games;
-    Loudest: Loudest;
-    GamesFastest: Games;
-    Fastest: Fastest;
-    GamesLoudest: Games;
-}
-
-export interface Games {
-    PlayerID: string;
-    Count: number;
-}
-
-export interface MostCorrect {
-    CorrectGames: number;
-    PlayerID: string;
+export interface SolverDefinition {
+    Description: string;
+    Name: string;
+    ConcurrentConnLimit: number;
 }
