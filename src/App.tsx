@@ -60,7 +60,6 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
 }
 
 
-
 const UserContext = React.createContext<User | null>(null);
 
 function App() {
@@ -185,7 +184,7 @@ function App() {
   );
 }
 
-const defaultTarget = "https://schwordler-pv7fcrtjdq-uc.a.run.app"
+// const defaultTarget = "https://schwordler-pv7fcrtjdq-uc.a.run.app"
 // const defaultTarget = "http://localhost:8081"
 
 function StartMatch() {
@@ -430,7 +429,7 @@ function Onboard() {
         throw (body.error)
       }
 
-      navigate(`/match/${body.uuid}`)
+      navigate(`/match`)
     } catch (error) {
       console.log(error.toString())
       showAlert(error.toString())
