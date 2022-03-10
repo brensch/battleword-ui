@@ -580,7 +580,7 @@ function MatchView() {
     let minutes = time.getUTCMinutes();
     let seconds = time.getUTCSeconds();
     let milliseconds = time.getUTCMilliseconds();
-    return hours + ":" + minutes + ":" + seconds + ":" + milliseconds;
+    return `${hours}:`.padStart(3, '0') + `${minutes}:`.padStart(3, '0') + `${seconds}:`.padStart(3, '0') + `${milliseconds}`.padStart(3, '0')
   }
 
   const columns: GridColDef[] = [
