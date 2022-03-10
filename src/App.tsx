@@ -528,12 +528,25 @@ function MatchView() {
     return player.GamesPlayed.filter((game) => game.Correct).length
   }
 
+  function getErrors(params) {
+    const player = params.row as Player
+    if (player.GamesPlayed === null) {
+      return 0
+    }
+    return player.GamesPlayed.filter((game) => game.Error !== "").length
+  }
+
   function getAverage(params) {
     const player = params.row as Player
     if (player.GamesPlayed === null) {
       return 0
     }
-    return player.GamesPlayed.reduce((a, b) => a + b.GuessResults.length, 0) / player.GamesPlayed.length
+    return player.GamesPlayed.reduce((a, b) => {
+      if (b.GuessResults === null) {
+        return a
+      }
+      return a + b.GuessResults.length
+    }, 0) / player.GamesPlayed.filter((game) => game.Error === "").length
   }
 
   function getTime(params) {
@@ -541,9 +554,17 @@ function MatchView() {
     if (player.GamesPlayed === null) {
       return 0
     }
-    return player.GamesPlayed.reduce((a, b) => a + b.GuessDurationsNS.reduce((c, d) => c + d, 0), 0) / 1000000
-    // return player.Summary.TotalTime
+    return player.GamesPlayed.reduce((a, b) => {
+      if (b.GuessDurationsNS === null) {
+        return a + 0
+      }
+      return a + b.GuessDurationsNS.reduce((c, d) => c + d, 0)
+    }, 0) / 1000000
   }
+  // return player.Summary.TotalTime
+  // }
+  // ) / 1000000
+  // return player.GamesPlayed.reduce((a, b) => a + b.GuessDurationsNS.reduce((c, d) => c + d, 0), 0) / 1000000
 
   function formatTime(params) {
     // console.log(params)
@@ -566,6 +587,7 @@ function MatchView() {
     { field: "fullName", headerName: 'Name', valueGetter: getName, width: 150, },
     { field: "gamesPlayed", headerName: 'Played', valueGetter: getPlayed, width: 100, },
     { field: "gamesCorrect", headerName: 'Correct', valueGetter: getCorrect, width: 100, },
+    { field: "gamesErrored", headerName: 'Errors', valueGetter: getErrors, width: 100, },
     { field: "averageGuesses", headerName: 'Average Guesses', valueGetter: getAverage, width: 150 },
     { field: "totalTime", headerName: 'Total Time', valueGetter: getTime, valueFormatter: formatTime, width: 150 },
   ];
