@@ -48,15 +48,18 @@ import {
 var API_HOST = "http://localhost:8080"
 var COLLECTION_MATCHES = "matches-local"
 var COLLECTION_SOLVERS = "solvers-local"
+var INCLOUD = false
 // API_HOST = "https://cloud-engine-dev-ouqu2q2ddq-uc.a.run.app"
 
 if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
   // dev code
 } else {
   // production code
-  API_HOST = "https://cloud-engine-dev-ouqu2q2ddq-uc.a.run.app"
+  API_HOST = "https://api-ouqu2q2ddq-uw.a.run.app"
   COLLECTION_MATCHES = "matches"
   COLLECTION_SOLVERS = "solvers"
+  // note this is not strictly named correctly. Just assume i'll never run from build locally.
+  INCLOUD = true
 }
 
 
@@ -408,7 +411,7 @@ function Onboard() {
         throw ("please enter a gamecount")
       }
 
-      if (uri.includes("localhost")) {
+      if (INCLOUD && uri.includes("localhost")) {
         throw ("I'm running in the cloud, I can't reach your localhost no matter how hard I try. Try hosting your API online.")
       }
 
