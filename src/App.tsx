@@ -786,22 +786,7 @@ function MatchView() {
       }
     >
 
-      <Grid item xs={12} sx={{
-        width: '100%',
-      }} >
 
-        <DataGrid
-          rows={match.Players}
-          columns={columns}
-          disableColumnMenu={true}
-          autoHeight
-          hideFooter={true}
-          getRowId={(row) => row.ID}
-          onRowClick={(params) => setSelectedPlayer(params.row as Player)}
-        />
-
-      </Grid>
-      <Divider />
       <Grid item xs={12} sx={{
         paddingTop: 3,
       }} >
@@ -892,6 +877,23 @@ function MatchView() {
 
           </Grid>
         </Grid>
+      </Grid>
+      <Grid item xs={12} sx={{
+        width: '100%',
+        paddingTop: 3
+
+      }} >
+
+        <DataGrid
+          rows={match.Players}
+          columns={columns}
+          disableColumnMenu={true}
+          autoHeight
+          hideFooter={true}
+          getRowId={(row) => row.ID}
+          onRowClick={(params) => setSelectedPlayer(params.row as Player)}
+        />
+
       </Grid>
       <Grid item xs={12} sx={{
         width: '100%',
