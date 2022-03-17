@@ -31,17 +31,21 @@ import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { GithubLoginButton, GoogleLoginButton } from "react-social-login-buttons";
 import { auth, firestore } from "./index";
 import Button from '@mui/material/Button';
-import { Match, Player, Solver } from './schema';
+import { PlayerGame, Game, Match, Player, Solver } from './schema';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import Autocomplete from '@mui/material/Autocomplete';
+import { LabelList, LineChart, Line, CartesianGrid, XAxis, YAxis, ResponsiveContainer, BarChart, Bar, Cell, Tooltip, Legend, PieChart, Pie, } from 'recharts';
+
 
 import {
   DataGrid,
   GridColumns,
   GridRowsProp,
   GridActionsCellItem,
-  GridColDef
+  GridColDef,
+  GridToolbar,
 } from '@mui/x-data-grid';
+import stc from 'string-to-color';
 
 
 
@@ -177,6 +181,7 @@ function App() {
         <Routes>
           <Route path="/" element={<StartMatch />} />
           <Route path="match" element={<StartMatch />} />
+          <Route path="match/:matchID/:playerID" element={<MatchView />} />
           <Route path="match/:matchID" element={<MatchView />} />
           <Route path="about" element={<About />} />
           <Route path="onboard" element={<Onboard />} />
@@ -303,41 +308,7 @@ function StartMatch() {
               }}
             />
           </Grid>
-          {/* {players.map((_, i) =>
-            <Grid key={`input-${i}`} item xs={12}>
-              <TextField
-                id={`player-${i}`}
-                label={`Player ${i + 1}`}
-                onChange={(e) => updatePlayer(i, e.target.value)}
-                // setting value locks it up for some reason
-                defaultValue={i === 0 ? defaultTarget : ""}
-                variant="outlined"
-                fullWidth={true}
-                sx={{
-                  width: 300,
-                  height: 56,
-                }}
-              />
-            </Grid>
-          )}
-          <Grid item xs={12}>
-            <IconButton
-              color="secondary"
-              aria-label="menu"
-              onClick={addPlayer}
-            >
-              <AddIcon />
-            </IconButton>
-            {players.length > 1 &&
-              <IconButton
-                color="secondary"
-                aria-label="menu"
-                onClick={removePlayer}
-              >
-                <RemoveIcon />
-              </IconButton>
-            }
-          </Grid> */}
+
           <Grid item xs={12}>
 
             <TextField
@@ -491,11 +462,45 @@ function Onboard() {
 
 }
 
+// var stringToColour = function (str) {
+//   var hash = 0;
+//   for (var i = 0; i < str.length; i++) {
+//     hash = str.charCodeAt(i) + ((hash << 5) - hash);
+//   }
+//   var colour = '#';
+//   for (var i = 0; i < 3; i++) {
+//     var value = (hash >> (i * 8)) & 0xFF;
+//     colour += ('00' + value.toString(16)).substr(-2);
+//   }
+//   return colour;
+// }
+
+interface JoinedGame {
+  ID: string;
+  Answer: string;
+  PlayerGames: JoinedPlayerGame[];
+  FastestPlayer: string;
+  MostAccuratePlayer: string;
+  BestAccuracy: number;
+}
+
+interface JoinedPlayerGame {
+  PlayerName: string;
+  Game: PlayerGame | undefined;
+}
+
 function MatchView() {
   let params = useParams();
 
   const [match, setMatch] = useState<Match | null>(null)
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  const [data, setData] = useState<any[]>([])
+  const [joinedGames, setJoinedGames] = useState<JoinedGame[]>([])
+  const [pageSize, setPageSize] = useState<number>(10)
+  const [fastestDistributions, setFastestDistributions] = useState<any[]>([])
+  const [accuracyDistributions, setAccuracyDistributions] = useState<any[]>([])
 
+  const { height, width } = useWindowDimensions();
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -507,6 +512,11 @@ function MatchView() {
     );
     return unsub
   }, [])
+
+  useEffect(() => {
+    constructGraphView()
+    joinGames()
+  }, [match])
 
   console.log(match)
 
@@ -544,10 +554,17 @@ function MatchView() {
     if (player.GamesPlayed === null) {
       return 0
     }
+
     return player.GamesPlayed.reduce((a, b) => {
       if (b.GuessResults === null) {
         return a
       }
+
+      if (!b.Correct || b.Error !== "") {
+        return a + match.RoundsPerGame + 1
+
+      }
+
       return a + b.GuessResults.length
     }, 0) / player.GamesPlayed.filter((game) => game.Error === "").length
   }
@@ -595,40 +612,343 @@ function MatchView() {
     { field: "totalTime", headerName: 'Total Time', valueGetter: getTime, valueFormatter: formatTime, width: 150 },
   ];
 
+  function getTotalCorrect(params) {
+    const joinedGame = params.row as JoinedGame
+    return joinedGame.PlayerGames.filter((game) => game.Game.Correct).length
+  }
+
+  function getTotalErrored(params) {
+    const joinedGame = params.row as JoinedGame
+    return joinedGame.PlayerGames.filter((game) => game.Game.Error !== "").length
+  }
+
+  // function getFastest(params) {
+  //   const joinedGame = params.row as JoinedGame
+
+  //   return joinedGame.PlayerGames.reduce((prev, current) => prev.Game.GuessDurationsNS.reduce((a, b) => a + b, 0) >
+  //     current.Game.GuessDurationsNS.reduce((a, b) => a + b, 0) ? prev : current).PlayerName
+  // }
+
+  // function getMostAccurate(params) {
+  //   const joinedGame = params.row as JoinedGame
+  //   let accuracies: number[] = joinedGame.PlayerGames.map(game => game.Game.GuessResults.length)
+
+  //   // this is smooth brain. it's late.
+  //   // need to give 'tie' as the answer if multiple players get the same result. the kicker is that it also needs to be the highest.
+  //   let highestNumber = accuracies.reduce((a, b) => a < b ? a : b)
+  //   let countHighestNumber = accuracies.filter(a => a === highestNumber)
+  //   if (countHighestNumber.length > 1) {
+  //     return "tie"
+  //   }
+
+  //   let highestBoi = accuracies.findIndex(a => a === highestNumber)
+  //   if (highestBoi === -1) {
+  //     return ""
+  //   }
+
+  //   return joinedGame.PlayerGames[highestBoi].PlayerName
+  // }
+
+  // function getBestScore(params) {
+  //   const joinedGame = params.row as JoinedGame
+  //   let accuracies: number[] = joinedGame.PlayerGames.map(game => game.Game.GuessResults.length)
+
+  //   return accuracies.reduce((a, b) => a < b ? a : b)
+  // }
 
 
+  const gameColumns: GridColDef[] = [
+    { field: "Answer", headerName: 'Answer', width: 150, },
+    { field: "totalCorrect", headerName: 'Correct players', valueGetter: getTotalCorrect, width: 150, },
+    { field: "totalErrors", headerName: 'Player Errors', valueGetter: getTotalErrored, width: 150, },
+    { field: "FastestPlayer", headerName: 'Fastest', width: 150, },
+    { field: "MostAccuratePlayer", headerName: 'Fewest Guesses', width: 150, },
+    { field: "BestAccuracy", headerName: 'Best Guess Count', width: 150, },
+    { field: "LoudestPlayer", headerName: 'Loudest', width: 150, },
+
+  ];
+
+
+  const constructGraphView = () => {
+    if (match === null) {
+      return
+    }
+    setData(Array.from({ length: match.RoundsPerGame + 1 }, (x, i) => i).map(i => {
+      let guess: string | number = i + 1
+      if (match.RoundsPerGame + 1 === i + 1) {
+        guess = "failed"
+      }
+      const row = {
+        guess: guess,
+      }
+      match.Players.forEach(player => {
+        if (player.GamesPlayed === null) {
+          return
+        }
+        row[player.Definition.Name] = player.GamesPlayed.filter(game => {
+          // check for incorrect games and return as gamelength+1
+          if (!game.Correct) {
+            return match.RoundsPerGame + 1 === i + 1
+          }
+          // otherwise check number of guesses vs current position in graph
+          return game.GuessResults.length === i + 1
+        }
+        ).length
+      })
+      return row
+    })
+    )
+  }
+
+  const joinGames = () => {
+    if (match === null) {
+      return
+    }
+    let joinedGames = match.Games.map(game => {
+
+      let playerGames = match.Players.map(player => {
+        let joinedPlayerGame: JoinedPlayerGame = {
+          Game: player.GamesPlayed.find(loopGame => loopGame.GameID == game.ID),
+          PlayerName: player.Definition.Name,
+        }
+        return joinedPlayerGame
+      })
+
+      let accuracies: number[] = playerGames.map(game => game.Game.GuessResults.length)
+      let bestAccuracy = accuracies.reduce((a, b) => a < b ? a : b)
+      // let playersWithBestAccuracy = accuracies.filter(a => a === bestAccuracy)
+      let mostAccuratePlayers = playerGames.filter(game => game.Game.GuessResults.length === bestAccuracy)
+      let mostAccuratePlayer = mostAccuratePlayers[0].PlayerName
+      if (mostAccuratePlayers.length > 1) {
+        mostAccuratePlayer = "tie"
+      }
+      let fastestPlayer = playerGames.reduce((prev, current) => prev.Game.GuessDurationsNS.reduce((a, b) => a + b, 0) >
+        current.Game.GuessDurationsNS.reduce((a, b) => a + b, 0) ? prev : current).PlayerName
+
+      let joinedGame: JoinedGame = {
+        ID: game.ID,
+        Answer: game.Answer,
+        PlayerGames: playerGames,
+        FastestPlayer: fastestPlayer,
+        MostAccuratePlayer: mostAccuratePlayer,
+        BestAccuracy: bestAccuracy,
+      }
+
+
+
+      return joinedGame
+    })
+
+    // get pie data
+    let fastestDistributions = match.Players.map(player => ({
+      name: player.Definition.Name,
+      value: joinedGames.filter(game => game.FastestPlayer === player.Definition.Name).length
+    }))
+
+    let accuracyDistributions = match.Players.map(player => ({
+      name: player.Definition.Name,
+      value: joinedGames.filter(game => game.MostAccuratePlayer === player.Definition.Name).length
+    }))
+
+    setAccuracyDistributions(accuracyDistributions)
+    setFastestDistributions(fastestDistributions)
+    setJoinedGames(joinedGames)
+  }
+
+  if (!match) {
+    return (
+      <div>loading</div>
+    )
+  }
+
+  console.log(width)
+  console.log(data)
+  console.log(joinedGames)
+  console.log(fastestDistributions)
+  console.log(accuracyDistributions)
+  // const data = [
+  //   { name: 'Page A', uv: 400, pv: 2400, amt: 2400 },
+  //   { name: 'Page B', uv: 300, pv: 2400, amt: 2400 },
+  //   { name: 'Page c', uv: 200, pv: 2400, amt: 2400 },
+  //   { name: 'Page d', uv: 400, pv: 2400, amt: 2400 },
+  // ];
   return (
+
     <Grid container
       justifyContent="center"
-      // direction="column"
+      direction="column"
       alignItems="center"
       padding={2}
+      // spacing={2}
       sx={{
         width: '100%',
-      }}
+      }
+      }
     >
 
       <Grid item xs={12} sx={{
         width: '100%',
       }} >
 
-        {match ?
-          <DataGrid
-            rows={match.Players}
-            columns={columns}
-            disableColumnMenu={true}
-            autoHeight
-            hideFooter={true}
-            getRowId={(row) => row.ID}
-          />
-          :
-          <div>loading</div>}
+        <DataGrid
+          rows={match.Players}
+          columns={columns}
+          disableColumnMenu={true}
+          autoHeight
+          hideFooter={true}
+          getRowId={(row) => row.ID}
+          onRowClick={(params) => setSelectedPlayer(params.row as Player)}
+        />
+
       </Grid>
+      <Divider />
+      <Grid item xs={12} sx={{
+        paddingTop: 3,
+      }} >
+        <BarChart
+          width={width * .8}
+          height={400}
+          data={data}
+          layout="vertical"
+          margin={{
+            top: 5,
+            right: 30,
+            left: 0,
+            bottom: 5,
+          }}
+          barCategoryGap={3}
+          barGap={0}
+        >
+          {/* <CartesianGrid strokeDasharray="3 10" /> */}
+          <XAxis type="number" axisLine={false} tick={false} />
+          <YAxis dataKey={'guess'} type="category" padding={{ top: 0, bottom: 0 }} minTickGap={0} tickLine={false} />
+          <Tooltip />
+          <Legend />
+          {match.Players.map(player =>
+            <Bar dataKey={player.Definition.Name} fill={stc(player.Definition.Description)} >
+              {/* <LabelList dataKey={player.Definition.Name} position="right"
+                style={{ fontSize: '50%', fill: '#3d3d3d' }} /> */}
+            </Bar>
+          )}
+          {/* <Bar dataKey="b" fill="#82ca9d" /> */}
+        </BarChart>
+
+      </Grid>
+      <Grid item xs={12}>
+        <Grid container
+          justifyContent="center"
+          // direction="column"
+          alignItems="center"
+          textAlign={'center'}
+        // padding={2}
+        // spacing={2}
+        // sx={{
+        //   width: '100%',
+        // }
+        // }
+        >
+          <Grid item xs={6}>
+            <PieChart width={width / 2.5} height={width / 2.5}>
+              <Pie
+                dataKey="value"
+                isAnimationActive={false}
+                data={accuracyDistributions}
+                cx="50%"
+                cy="50%"
+                outerRadius={width / 10}
+                fill="#8884d8"
+                label
+              >
+                {accuracyDistributions.map((entry, index) =>
+                  <Cell key={`cell-${index}`} fill={stc(match.Players[index].Definition.Description)} />
+                )}
+              </Pie>
+
+              <Tooltip />
+            </PieChart>
+            Fastest
+
+          </Grid>
+          <Grid item xs={6}  >
+            <PieChart width={width / 2.5} height={width / 2.5}>
+              <Pie
+                dataKey="value"
+                isAnimationActive={false}
+                data={fastestDistributions}
+                cx="50%"
+                cy="50%"
+                outerRadius={width / 10}
+                fill="#8884d8"
+                label
+              >
+                {accuracyDistributions.map((entry, index) =>
+                  <Cell key={`cell-${index}`} fill={stc(match.Players[index].Definition.Description)} />
+                )}
+              </Pie>
+
+              <Tooltip />
+            </PieChart>
+            Fewest Guesses
+
+          </Grid>
+        </Grid>
+      </Grid>
+      <Grid item xs={12} sx={{
+        width: '100%',
+        paddingTop: 3
+      }} >
+
+
+        <DataGrid
+          rows={joinedGames}
+          columns={gameColumns}
+          autoHeight
+          pageSize={pageSize}
+          onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+          rowsPerPageOptions={[10, 25, 100]}
+          pagination
+          components={{ Toolbar: GridToolbar }}
+          getRowId={(row) => row.ID}
+          onRowClick={(params) => setSelectedPlayer(params.row as Player)}
+        />
+
+      </Grid>
+
+
     </Grid>
+
+
   )
 
 
 }
+
+
+function getWindowDimensions() {
+  const { innerWidth: width, innerHeight: height } = window;
+  return {
+    width,
+    height
+  };
+}
+
+function useWindowDimensions() {
+  const [windowDimensions, setWindowDimensions] = useState(getWindowDimensions());
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowDimensions(getWindowDimensions());
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowDimensions;
+}
+
+{/* <div>{selectedPlayer.Definition.Name}</div>
+            <div>{selectedPlayer.Definition.Description}</div> */}
 
 function About() {
   return (

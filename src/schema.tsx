@@ -13,7 +13,7 @@ export interface Game {
 
 export interface Player {
     Definition: Definition;
-    GamesPlayed: Game[];
+    GamesPlayed: PlayerGame[];
     ID: string;
 }
 
@@ -22,7 +22,7 @@ export interface Definition {
     Name: string;
 }
 
-export interface Game {
+export interface PlayerGame {
     Error: string;
     GameID: string;
     Correct: boolean;
